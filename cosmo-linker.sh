@@ -16,8 +16,6 @@
 #   ARCH   – target architecture, "x86_64" or "aarch64"
 #             (default: x86_64)
 
-set -euo pipefail
-
 COSMO="${COSMO:-$HOME/cosmocc}"
 ARCH="${ARCH:-x86_64}"
 
@@ -57,7 +55,7 @@ done
 # directory doesn't silently kill the script.
 COSMO_A=""
 if [ -d "$COSMO" ]; then
-    COSMO_A=$(find "$COSMO" -name "cosmopolitan.a" -path "*${ARCH}*" 2>/dev/null | head -1) || true
+    COSMO_A=$(find "$COSMO" -name "cosmopolitan.a" 2>/dev/null | head -1) || true
 fi
 
 if [ -n "$COSMO_A" ]; then

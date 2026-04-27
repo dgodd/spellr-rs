@@ -175,4 +175,6 @@ git push origin v$repo_version
 Possibly needing
 ```
 rustup component add rust-src --toolchain nightly-aarch64-apple-darwin
+
+rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 ```
