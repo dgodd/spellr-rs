@@ -7,60 +7,61 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  COSMO: ${{ github.workspace }}/cosmocc
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            asset_name: spellr-linux-x86_64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            asset_name: spellr-macos-aarch64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            asset_name: spellr-windows-x86_64.exe
+    name: Build APE binary (Cosmopolitan)
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Download cosmocc toolchain
+        run: |
+          mkdir -p "$COSMO"
+          wget -q -O /tmp/cosmocc.zip https://cosmo.zip/pub/cosmocc/cosmocc.zip
+          unzip -q /tmp/cosmocc.zip -d "$COSMO"
 
-      - name: Cache Cargo registry and build
-        uses: actions/cache@v6
+      - name: Install cosmo-linker wrapper
+        run: |
+          cp cosmo-linker.sh "$COSMO/bin/cosmo-linker"
+          chmod +x "$COSMO/bin/cosmo-linker"
+          echo "$COSMO/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Rust (nightly + rust-src)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-cargo-
+          key: cosmo-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cosmo-cargo-
 
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build APE release binary
+        run: |
+          cargo +nightly build --release \
+            -Zbuild-std=panic_abort,std \
+            -Zbuild-std-features="" \
+            --target ./x86_64-unknown-linux-cosmo.json
 
-      - name: Stage binary (Unix)
-        if: runner.os != 'Windows'
-        run: cp target/${{ matrix.target }}/release/spellr ${{ matrix.asset_name }}
+      - name: Strip debug info and produce final APE binary
+        run: |
+          objcopy -S \
+            target/x86_64-unknown-linux-cosmo/release/spellr.com.dbg \
+            spellr
+          chmod +x spellr
 
-      - name: Stage binary (Windows)
-        if: runner.os == 'Windows'
-        run: cp target/${{ matrix.target }}/release/spellr.exe ${{ matrix.asset_name }}
-
-      - name: Upload binary to release
+      - name: Upload APE binary to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset_name }}
+          files: spellr
           fail_on_unmatched_files: true

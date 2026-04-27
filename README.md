@@ -167,6 +167,6 @@ Bundled wordlists are derived from [SCOWL](http://wordlist.aspell.net/) and [MDN
 To cut a release, just push a version tag:
 
 ```sh
-git tag v0.12.1
-git push origin v0.12.1
+git tag v0.12.3
+git push origin v0.12.3
 ```
