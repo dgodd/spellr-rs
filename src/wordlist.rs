@@ -16,10 +16,12 @@ pub struct Wordlist {
     words: Option<Vec<String>>,
     /// Cache: normalised term → whether it is in the list.
     cache: HashMap<String, bool>,
+    /// Optional embedded wordlist content baked in at compile time.
+    embedded: Option<&'static str>,
 }
 
 impl Wordlist {
-    /// Create a new `Wordlist` handle.
+    /// Create a new `Wordlist` handle backed only by a disk file.
     ///
     /// No I/O is performed here; words are loaded on first access.
     pub fn new(path: PathBuf, name: String) -> Self {
@@ -28,6 +30,19 @@ impl Wordlist {
             name,
             words: None,
             cache: HashMap::new(),
+            embedded: None,
+        }
+    }
+
+    /// Create a new `Wordlist` handle that starts from embedded content and
+    /// optionally merges any additional words found on disk.
+    pub fn with_embedded(path: PathBuf, name: String, embedded: &'static str) -> Self {
+        Self {
+            path,
+            name,
+            words: None,
+            cache: HashMap::new(),
+            embedded: Some(embedded),
         }
     }
 
@@ -63,9 +78,10 @@ impl Wordlist {
         self.write(&snapshot)
     }
 
-    /// Return `true` if the backing file exists on disk.
+    /// Return `true` if embedded content is present **or** the backing file
+    /// exists on disk.
     pub fn exists(&self) -> bool {
-        self.path.exists()
+        self.embedded.is_some() || self.path.exists()
     }
 
     /// Return a slice of all words (loading from disk on first call).
@@ -90,11 +106,36 @@ impl Wordlist {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /// Return an immutable reference to the loaded words, loading from disk if
-    /// they have not been loaded yet.
+    /// Parse a string of newline-separated words into a sorted, deduplicated
+    /// `Vec<String>`.
+    fn parse_content(content: &str) -> Vec<String> {
+        let mut words: Vec<String> = content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.to_string())
+            .collect();
+        words.sort();
+        words.dedup();
+        words
+    }
+
+    /// Return an immutable reference to the loaded words, loading from disk
+    /// (and/or embedded content) if they have not been loaded yet.
     fn load_words(&mut self) -> &[String] {
         if self.words.is_none() {
-            self.words = Some(Self::read_words_from_disk(&self.path));
+            // Start with embedded content (if any).
+            let mut words = match self.embedded {
+                Some(content) => Self::parse_content(content),
+                None => Vec::new(),
+            };
+            // Merge in any additional words from disk.
+            for w in Self::read_words_from_disk(&self.path) {
+                match words.binary_search(&w) {
+                    Ok(_) => {}          // already present
+                    Err(pos) => words.insert(pos, w),
+                }
+            }
+            self.words = Some(words);
         }
         self.words.as_deref().unwrap()
     }
@@ -102,7 +143,19 @@ impl Wordlist {
     /// Return a mutable reference to the loaded words.
     fn load_words_mut(&mut self) -> &mut Vec<String> {
         if self.words.is_none() {
-            self.words = Some(Self::read_words_from_disk(&self.path));
+            // Start with embedded content (if any).
+            let mut words = match self.embedded {
+                Some(content) => Self::parse_content(content),
+                None => Vec::new(),
+            };
+            // Merge in any additional words from disk.
+            for w in Self::read_words_from_disk(&self.path) {
+                match words.binary_search(&w) {
+                    Ok(_) => {}
+                    Err(pos) => words.insert(pos, w),
+                }
+            }
+            self.words = Some(words);
         }
         self.words.as_mut().unwrap()
     }
@@ -232,5 +285,52 @@ mod tests {
         assert!(wl2.contains("alpha"));
         assert!(wl2.contains("beta"));
         assert_eq!(wl2.len(), 2);
+    }
+
+    #[test]
+    fn embedded_wordlist_exists_without_disk_file() {
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let path = dir.path().join("nonexistent.txt");
+        let wl = Wordlist::with_embedded(path, "test".into(), "apple\nbanana\ncherry\n");
+        assert!(wl.exists());
+    }
+
+    #[test]
+    fn embedded_wordlist_contains_words() {
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let path = dir.path().join("nonexistent.txt");
+        let mut wl = Wordlist::with_embedded(path, "test".into(), "apple\nbanana\ncherry\n");
+        assert!(wl.contains("apple"));
+        assert!(wl.contains("banana"));
+        assert!(wl.contains("cherry"));
+        assert!(!wl.contains("durian"));
+    }
+
+    #[test]
+    fn embedded_words_are_sorted() {
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let path = dir.path().join("nonexistent.txt");
+        let mut wl = Wordlist::with_embedded(path, "test".into(), "zebra\napple\nmango\n");
+        let words = wl.words().to_vec();
+        let mut sorted = words.clone();
+        sorted.sort();
+        assert_eq!(words, sorted);
+    }
+
+    #[test]
+    fn disk_words_merged_with_embedded() {
+        let dir = tempfile::tempdir().expect("tmp dir");
+        let path = dir.path().join("extra.txt");
+        // Write some extra words to disk.
+        std::fs::write(&path, "durian\nelderberry\n").unwrap();
+        let mut wl = Wordlist::with_embedded(path, "test".into(), "apple\nbanana\ncherry\n");
+        assert!(wl.contains("apple"));
+        assert!(wl.contains("durian"));
+        assert!(wl.contains("elderberry"));
+        // Result should still be sorted.
+        let words = wl.words().to_vec();
+        let mut sorted = words.clone();
+        sorted.sort();
+        assert_eq!(words, sorted);
     }
 }

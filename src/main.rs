@@ -2,6 +2,7 @@
 #![allow(unused_imports)]
 
 mod check;
+mod embedded_wordlists;
 mod cli;
 mod config;
 mod file_list;

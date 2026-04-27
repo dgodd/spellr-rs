@@ -8,7 +8,6 @@ dolara
 dolares
 dolor
 donoore
-ello
 elp
 eplace
 foa
@@ -18,5 +17,4 @@ lorem
 thisisanimpossibleword
 thiswordisalsooutsidethethreshold
 thiswordisoutsidethethreshould
-tring
 unword

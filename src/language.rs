@@ -207,24 +207,23 @@ impl Language {
 
     /// Return the bundled (gem / binary-local) wordlist for this language.
     fn gem_wordlist(&self) -> Wordlist {
-        let path = self
-            .wordlists_dir
-            .join(format!("{}.txt", self.name));
-        Wordlist::new(path.clone(), path.display().to_string())
+        let path = self.wordlists_dir.join(format!("{}.txt", self.name));
+        match crate::embedded_wordlists::get(&self.name) {
+            Some(content) => Wordlist::with_embedded(path, self.name.clone(), content),
+            None => Wordlist::new(path, self.name.clone()),
+        }
     }
 
     /// Return per-locale wordlists (e.g. `wordlists/english/US.txt`).
     fn locale_wordlists(&self) -> Vec<Wordlist> {
-        self.locales
-            .iter()
-            .map(|locale| {
-                let path = self
-                    .wordlists_dir
-                    .join(&self.name)
-                    .join(format!("{locale}.txt"));
-                Wordlist::new(path.clone(), path.display().to_string())
-            })
-            .collect()
+        self.locales.iter().map(|locale| {
+            let path = self.wordlists_dir.join(&self.name).join(format!("{locale}.txt"));
+            let name = format!("{}/{}", self.name, locale);
+            match crate::embedded_wordlists::get_locale(&self.name, locale) {
+                Some(content) => Wordlist::with_embedded(path, name, content),
+                None => Wordlist::new(path, name),
+            }
+        }).collect()
     }
 
     /// Return all candidate wordlists in priority order (existence not checked).
