@@ -72,17 +72,24 @@ impl Language {
         // Rules (matching Ruby fast_ignore behaviour):
         //   • Pattern without a `/` → match the filename anywhere in the tree
         //     by prepending `**/`.
-        //   • Pattern with a `/` → keep as-is (anchored or relative).
+        //   • Pattern ending with `/` → directory pattern; expand to `<pat>**`
+        //     so that `spec/` matches all files inside spec/ (gitignore
+        //     semantics: a trailing slash means "this directory and everything
+        //     beneath it").
+        //   • Pattern with a `/` (no trailing slash) → keep as-is (anchored).
         let mut builder = GlobSetBuilder::new();
         let mut has_includes = false;
 
         if let Some(includes) = &config.includes {
             for pattern in includes {
                 has_includes = true;
-                let glob_pattern = if pattern.contains('/') {
-                    // Already path-qualified – try as-is, and also with `**/`
-                    // prefix so it matches regardless of where the project root
-                    // sits.
+                let glob_pattern = if pattern.ends_with('/') {
+                    // Directory pattern: `spec/` → `spec/**`
+                    // Also add a `**/` prefix so it matches the directory at
+                    // any depth, not just at the project root.
+                    format!("{pattern}**")
+                } else if pattern.contains('/') {
+                    // Already path-qualified – use as-is.
                     pattern.clone()
                 } else {
                     // Simple glob like `*.rb` → match anywhere in the tree.
@@ -92,9 +99,20 @@ impl Language {
                 if let Ok(g) = Glob::new(&glob_pattern) {
                     builder.add(g);
                 }
-                // Also add the bare pattern so it matches relative paths that
-                // happen to start from the project root.
-                if glob_pattern != *pattern {
+
+                // For directory patterns we also want to match the same
+                // directory nested anywhere in the tree (e.g. `app/spec/`).
+                if pattern.ends_with('/') {
+                    let nested = format!("**/{pattern}**");
+                    if let Ok(g) = Glob::new(&nested) {
+                        builder.add(g);
+                    }
+                }
+
+                // For non-directory patterns that were rewritten (e.g.
+                // `*.rb` → `**/*.rb`), also add the bare pattern so it
+                // matches relative paths starting from the project root.
+                if !pattern.ends_with('/') && glob_pattern != *pattern {
                     if let Ok(g) = Glob::new(pattern) {
                         builder.add(g);
                     }
