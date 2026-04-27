@@ -2,6 +2,10 @@
 
 use std::collections::HashMap;
 
+use once_cell::sync::Lazy;
+
+
+
 use crate::key_tuner::possible_key::PossibleKey;
 use crate::key_tuner::stats::gaussian_probability;
 
@@ -30,22 +34,31 @@ pub struct NaiveBayesData {
 
 // ── Public classifier ─────────────────────────────────────────────────────────
 
+/// The parsed classifier data, loaded once from the embedded YAML.
+/// This is the expensive part; `NaiveBayes` itself is just a weight wrapper.
+static CACHED_DATA: Lazy<NaiveBayesData> = Lazy::new(|| {
+    let yaml_str = include_str!("../../key_tuner_data.yml");
+    parse_yaml(yaml_str).expect("bundled key_tuner_data.yml failed to parse")
+});
+
 pub struct NaiveBayes {
-    data: NaiveBayesData,
     key_heuristic_weight: f64,
 }
 
 impl NaiveBayes {
-    /// Load from the bundled YAML using the default heuristic weight (5.0).
+    /// Create a classifier using the default heuristic weight (5.0).
     pub fn new() -> Self {
         Self::with_weight(5.0)
     }
 
-    /// Load from the bundled YAML with an explicit heuristic weight.
+    /// Create a classifier with an explicit heuristic weight.
+    ///
+    /// This is cheap — the underlying YAML data is already cached in
+    /// `CACHED_DATA` after the first call to `new()` or `with_weight()`.
     pub fn with_weight(key_heuristic_weight: f64) -> Self {
-        let yaml_str = include_str!("../../key_tuner_data.yml");
-        let data = parse_yaml(yaml_str).expect("bundled key_tuner_data.yml failed to parse");
-        Self { data, key_heuristic_weight }
+        // Touch the global so the YAML is parsed now (if not already).
+        let _ = &*CACHED_DATA;
+        Self { key_heuristic_weight }
     }
 
     /// Returns `true` if `string` is classified as an API key.
@@ -62,11 +75,11 @@ impl NaiveBayes {
 
     /// Gaussian probability of `value` for `feature` in `class_name`.
     fn feature_probability(&self, feature: &str, value: f64, class_name: &str) -> f64 {
-        let stats = self
-            .data
+        let data = &*CACHED_DATA;
+        let stats = data
             .feature_set
             .get(class_name)
-            .and_then(|fs| fs.get(feature));
+            .and_then(|fs: &HashMap<String, FeatureStats>| fs.get(feature));
 
         match stats {
             Some(s) => gaussian_probability(value, s.standard_deviation, s.mean, s.variance),
@@ -83,7 +96,8 @@ impl NaiveBayes {
 
     /// Full class probability (prior × likelihood × optional heuristic boost).
     fn class_probability(&self, features: &HashMap<String, f64>, class_name: &str) -> f64 {
-        let class_fraction = 1.0 / self.data.num_classes as f64;
+        let data = &*CACHED_DATA;
+        let class_fraction = 1.0 / data.num_classes as f64;
         let mut bayes = self.feature_multiplication(features, class_name);
         if class_name.starts_with("key_") {
             bayes *= self.heuristic_weight();
@@ -93,8 +107,8 @@ impl NaiveBayes {
 
     /// Return the class name with the highest probability.
     fn classify(&self, features: &HashMap<String, f64>) -> String {
-        self.data
-            .classes
+        let data = &*CACHED_DATA;
+        data.classes
             .iter()
             .max_by(|a, b| {
                 let pa = self.class_probability(features, a);
@@ -257,11 +271,12 @@ mod tests {
 
     #[test]
     fn loads_from_embedded_yaml() {
-        let nb = NaiveBayes::new();
-        assert_eq!(nb.data.num_classes, 8);
-        assert_eq!(nb.data.classes.len(), 8);
-        assert!(nb.data.feature_set.contains_key("not_key_lower36"));
-        assert!(nb.data.feature_set.contains_key("key_base64"));
+        let _nb = NaiveBayes::new(); // ensure CACHED_DATA is initialised
+        let data = &*CACHED_DATA;
+        assert_eq!(data.num_classes, 8);
+        assert_eq!(data.classes.len(), 8);
+        assert!(data.feature_set.contains_key("not_key_lower36"));
+        assert!(data.feature_set.contains_key("key_base64"));
     }
 
     #[test]
@@ -294,9 +309,8 @@ mod tests {
 
     #[test]
     fn features_have_correct_stats_for_known_class() {
-        let nb = NaiveBayes::new();
-        let class = nb
-            .data
+        let _nb = NaiveBayes::new();
+        let class = CACHED_DATA
             .feature_set
             .get("not_key_lower36")
             .expect("class not_key_lower36 must exist");

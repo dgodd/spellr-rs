@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use crate::reporter::{FileContext, Reporter, ReporterAction};
-use crate::string_format::{aqua, bold, green, pluralize};
+use crate::string_format::{aqua, bold, green, pluralize, relative_path};
 use crate::token::Token;
 
 pub struct DefaultReporter {
@@ -39,13 +39,14 @@ impl Reporter for DefaultReporter {
         // Mark that we found an error.
         self.exit_code = 1;
         self.total_errors += 1;
+        let rel = relative_path(&token.location.file);
         self.error_files
-            .insert(token.location.file.display().to_string());
+            .insert(rel.display().to_string());
 
         // Format: "<aqua location>  <highlighted line stripped of leading/trailing whitespace>"
         let location_str = format!(
             "{}:{}:{}",
-            token.location.file.display(),
+            rel.display(),
             token.location.line_number,
             token.location.char_offset,
         );

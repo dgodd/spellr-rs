@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::reporter::{FileContext, Reporter, ReporterAction};
-use crate::string_format::{bold, green, red};
+use crate::string_format::{bold, green, red, relative_path};
 use crate::token::Token;
 use crate::wordlist::Wordlist;
 
@@ -72,7 +72,7 @@ impl Reporter for AutocorrectReporter {
             self.total_unfixed += 1;
             let location_str = format!(
                 "{}:{}:{}",
-                token.location.file.display(),
+                relative_path(&token.location.file).display(),
                 token.location.line_number,
                 token.location.char_offset,
             );

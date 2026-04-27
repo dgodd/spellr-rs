@@ -1,3 +1,14 @@
+use std::path::{Path, PathBuf};
+
+/// Return `path` relative to the current working directory, falling back to
+/// the original path if the cwd cannot be determined or the path is not under it.
+pub fn relative_path(path: &Path) -> PathBuf {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    path.strip_prefix(&cwd)
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
 pub fn pluralize(word: &str, count: usize) -> String {
     if count == 1 {
         format!("{} {}", count, word)

@@ -1,7 +1,7 @@
 ---
 excludes:
-  - wordlists/*
-  - target/*
+  - /wordlists/
+  - /target/
   - Cargo.lock
 languages:
   lorem:

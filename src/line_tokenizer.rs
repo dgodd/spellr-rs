@@ -5,10 +5,6 @@ use crate::token_regexps::{
     AFTER_KEY_SKIPS_RE, POSSIBLE_KEY_RE, SKIPS_RE, SPELLR_DISABLE_RE, SPELLR_ENABLE_RE, TERM_RE,
     min_alpha_re,
 };
-use once_cell::sync::Lazy;
-
-// Global Naive Bayes classifier instance (loaded once from the embedded YAML).
-static BAYES_KEY_HEURISTIC: Lazy<NaiveBayes> = Lazy::new(NaiveBayes::new);
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -282,7 +278,7 @@ impl<'a> LineTokenizer<'a> {
             return false;
         }
 
-        BAYES_KEY_HEURISTIC.is_key(possible_key)
+        NaiveBayes::with_weight(self.key_heuristic_weight).is_key(possible_key)
     }
 
     // ── Position tracking ─────────────────────────────────────────────────────

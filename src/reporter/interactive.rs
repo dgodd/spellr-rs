@@ -62,7 +62,7 @@ impl InteractiveReporter {
         let loc = &token.location;
         let location_str = format!(
             "{}:{}:{}",
-            loc.file.display(),
+            crate::string_format::relative_path(&loc.file).display(),
             loc.line_number,
             loc.char_offset,
         );
