@@ -154,7 +154,7 @@ const REPEATED_SINGLE_LETTERS_PAT: &str = r"(?:(\p{L})\1+)(?!\p{L})";
 // Structure: 23 optional nested groups (b..x), then (?:yz?) as the innermost, giving
 // exactly 24 (?:  groups + 1 (?!  group = 25 opens, matched by 25 closes.
 const SEQUENTIAL_LETTERS_PAT: &str =
-    r"a(?:b(?:c(?:d(?:e(?:f(?:g(?:h(?:i(?:j(?:k(?:l(?:m(?:n(?:o(?:p(?:q(?:r(?:s(?:t(?:u(?:v(?:w(?:x(?:yz?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?(?!\p{L})";
+    r"(?i:a(?:b(?:c(?:d(?:e(?:f(?:g(?:h(?:i(?:j(?:k(?:l(?:m(?:n(?:o(?:p(?:q(?:r(?:s(?:t(?:u(?:v(?:w(?:x(?:yz?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?(?!\p{L}))";
 
 /// Skip pattern applied after the key-heuristic pass.
 /// Requires fancy-regex for the backreference in REPEATED_SINGLE_LETTERS
@@ -322,6 +322,16 @@ mod tests {
         let re = &*AFTER_KEY_SKIPS_RE;
         // lowercase sequential run "abcde" not followed by alpha -> should match at pos 0
         let m = re.find("abcde ").unwrap();
+        assert!(m.is_some());
+        assert_eq!(m.unwrap().start(), 0);
+    }
+
+    #[test]
+    fn after_key_skips_sequential_uppercase() {
+        let re = &*AFTER_KEY_SKIPS_RE;
+        // uppercase sequential run "ABCD" not followed by alpha -> should match at pos 0
+        // (Ruby's SEQUENTIAL_LETTERS_RE uses the /i flag)
+        let m = re.find("ABCD ").unwrap();
         assert!(m.is_some());
         assert_eq!(m.unwrap().start(), 0);
     }
