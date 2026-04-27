@@ -11,6 +11,7 @@ autocorrects
 backports
 baz
 behaviour
+behavioural
 beihang
 bundler
 capfile
@@ -27,7 +28,9 @@ css
 ctrl
 customisations
 cyclomatic
+deduplicating
 def
+deps
 desaturate
 dict
 diffable
@@ -69,7 +72,7 @@ haml
 hardcoded
 hashbang
 hashbangs
-hashbangs
+hashset
 heuristically
 hml
 hostnames
@@ -94,6 +97,7 @@ keypress
 khz
 klass
 kwargs
+licences
 localhost
 logstash
 lstripped
@@ -107,6 +111,8 @@ memoized
 merchantability
 multibyte
 multiline
+myproject
+myruby
 newlines
 noninfringement
 nonwords
@@ -124,8 +130,10 @@ rakefile
 rdoc
 readline
 readme
+recognises
 redisplay
 regexps
+reimplementation
 repo
 rspec
 rubocop
@@ -138,6 +146,7 @@ shellsplit
 shellwords
 sherson
 simplecov
+src
 stderr
 stdin
 stdlib
@@ -164,6 +173,7 @@ tokenizes
 tsx
 ttf
 txt
+unioned
 unitless
 unrecognised
 unscan
@@ -183,6 +193,7 @@ wtf
 xdescribe
 xit
 xlsx
+yaml
 yardoc
 yml
 zsh

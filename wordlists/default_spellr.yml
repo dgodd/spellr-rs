@@ -50,8 +50,7 @@ languages:
   rust:
     includes:
       - '*.rs'
-      - Cargo.lock
-      - target/
+      - Cargo.toml
   html:
     includes:
       - '*.html'
