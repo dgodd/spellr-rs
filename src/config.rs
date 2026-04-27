@@ -10,110 +10,11 @@ use std::sync::RwLock;
 // Default config embedded in the binary
 // ---------------------------------------------------------------------------
 
-const DEFAULT_CONFIG_YAML: &str = r#"
-word_minimum_length: 3
-key_heuristic_weight: 5
-key_minimum_length: 6
-excludes:
-  - .git/
-  - .spellr_wordlists/
-  - .DS_Store
-  - Gemfile.lock
-  - .rspec_status
-  - '*.png'
-  - '*.jpg'
-  - '*.jpeg'
-  - '*.gif'
-  - '*.ico'
-  - .gitkeep
-  - .keep
-  - '*.svg'
-  - '*.eot'
-  - '*.ttf'
-  - '*.woff'
-  - '*.woff2'
-  - '*.zip'
-  - '*.pdf'
-  - '*.xlsx'
-  - '*.gz'
-languages:
-  english:
-    locale: US
-  spellr:
-    addable: false
-  ruby:
-    includes:
-      - '*.rb'
-      - '*.rake'
-      - '*.gemspec'
-      - '*.erb'
-      - '*.haml'
-      - '*.jbuilder'
-      - '*.builder'
-      - Gemfile
-      - Rakefile
-      - config.ru
-      - Capfile
-      - .simplecov
-    hashbangs:
-      - ruby
-  html:
-    includes:
-      - '*.html'
-      - '*.hml'
-      - '*.jsx'
-      - '*.tsx'
-      - '*.js'
-      - '*.ts'
-      - '*.jsx.snap'
-      - '*.tsx.snap'
-      - '*.coffee'
-      - '*.haml'
-      - '*.erb'
-      - '*.rb'
-      - '*.builder'
-      - '*.css'
-      - '*.scss'
-      - '*.sass'
-      - '*.less'
-  javascript:
-    includes:
-      - '*.html'
-      - '*.hml'
-      - '*.jsx'
-      - '*.tsx'
-      - '*.js'
-      - '*.ts'
-      - '*.jsx.snap'
-      - '*.tsx.snap'
-      - '*.coffee'
-      - '*.haml'
-      - '*.erb'
-      - '*.json'
-  shell:
-    includes:
-      - '*.sh'
-      - Dockerfile
-    hashbangs:
-      - bash
-      - sh
-  dockerfile:
-    includes:
-      - Dockerfile
-  css:
-    includes:
-      - '*.css'
-      - '*.sass'
-      - '*.scss'
-      - '*.less'
-  xml:
-    includes:
-      - '*.xml'
-      - '*.html'
-      - '*.haml'
-      - '*.hml'
-      - '*.svg'
-"#;
+/// The default configuration, embedded from `wordlists/default_spellr.yml`.
+/// This mirrors the Ruby gem's `lib/.spellr.yml` and is deep-merged with the
+/// project's `.spellr.yml` at runtime.
+const DEFAULT_CONFIG_YAML: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/wordlists/default_spellr.yml"));
 
 // ---------------------------------------------------------------------------
 // Serde structs for deserialization
@@ -209,19 +110,24 @@ impl Config {
 
 /// Merge a user `RawConfig` on top of a default `RawConfig`.
 ///
+/// Mirrors the Ruby gem's `ConfigLoader#merge_config` behaviour:
+/// - Arrays are **unioned** (`default | project`), preserving order and deduplicating.
+/// - Hashes are **recursively merged** (project wins on scalars, arrays are unioned).
 /// - Scalar fields: user value wins if present, otherwise default.
-/// - `excludes` / `includes` lists: user list replaces default entirely (matches Ruby behaviour).
-/// - `languages`: default languages are kept; user entries are merged in (user wins per-language).
 fn merge_configs(default: RawConfig, user: Option<RawConfig>) -> RawConfig {
     let Some(user) = user else {
         return default;
     };
 
-    // Merge language maps: start with default, overlay with user entries.
+    // Merge language maps: deep-merge per language entry.
     let languages = match (default.languages, user.languages) {
         (Some(mut def_langs), Some(user_langs)) => {
-            for (name, lang_cfg) in user_langs {
-                def_langs.insert(name, lang_cfg);
+            for (name, user_lang) in user_langs {
+                if let Some(def_lang) = def_langs.get(&name).cloned() {
+                    def_langs.insert(name, merge_language_config(def_lang, user_lang));
+                } else {
+                    def_langs.insert(name, user_lang);
+                }
             }
             Some(def_langs)
         }
@@ -233,10 +139,42 @@ fn merge_configs(default: RawConfig, user: Option<RawConfig>) -> RawConfig {
         word_minimum_length: user.word_minimum_length.or(default.word_minimum_length),
         key_heuristic_weight: user.key_heuristic_weight.or(default.key_heuristic_weight),
         key_minimum_length: user.key_minimum_length.or(default.key_minimum_length),
-        // Lists: if user provided a list, use it; otherwise keep the default.
-        excludes: user.excludes.or(default.excludes),
-        includes: user.includes.or(default.includes),
+        // Arrays: union (default entries first, then any new user entries appended).
+        excludes: union_vecs(default.excludes, user.excludes),
+        includes: union_vecs(default.includes, user.includes),
         languages,
+    }
+}
+
+/// Return the union of two optional `Vec<String>`, preserving the order of
+/// `default` entries and appending any `user` entries not already present.
+/// Mirrors Ruby's `default | project` array union.
+fn union_vecs(default: Option<Vec<String>>, user: Option<Vec<String>>) -> Option<Vec<String>> {
+    match (default, user) {
+        (Some(mut def), Some(usr)) => {
+            for item in usr {
+                if !def.contains(&item) {
+                    def.push(item);
+                }
+            }
+            Some(def)
+        }
+        (def, None) => def,
+        (None, usr) => usr,
+    }
+}
+
+/// Deep-merge two `LanguageConfig` entries.
+///
+/// - `includes` and `hashbangs` arrays are unioned.
+/// - Scalar fields (`key`, `locale`, `addable`): user value wins if present.
+fn merge_language_config(default: LanguageConfig, user: LanguageConfig) -> LanguageConfig {
+    LanguageConfig {
+        key: user.key.or(default.key),
+        includes: union_vecs(default.includes, user.includes),
+        hashbangs: union_vecs(default.hashbangs, user.hashbangs),
+        locale: user.locale.or(default.locale),
+        addable: user.addable.or(default.addable),
     }
 }
 
@@ -321,5 +259,34 @@ mod tests {
         let langs = merged.languages.unwrap();
         assert!(langs.contains_key("mylang"));
         assert!(langs.contains_key("ruby")); // default preserved
+    }
+
+    #[test]
+    fn merge_excludes_are_unioned_not_replaced() {
+        let default: RawConfig = serde_yaml::from_str(DEFAULT_CONFIG_YAML).unwrap();
+        let user: RawConfig = serde_yaml::from_str("excludes:\n  - '*.custom'\n").unwrap();
+        let merged = merge_configs(default, Some(user));
+        let excludes = merged.excludes.unwrap();
+        // Default entries are preserved
+        assert!(excludes.iter().any(|e| e == ".git/"), "default .git/ missing");
+        // User entry is appended
+        assert!(excludes.iter().any(|e| e == "*.custom"), "user *.custom missing");
+    }
+
+    #[test]
+    fn merge_language_includes_are_unioned() {
+        let default: RawConfig = serde_yaml::from_str(DEFAULT_CONFIG_YAML).unwrap();
+        let user: RawConfig = serde_yaml::from_str(
+            "languages:\n  ruby:\n    includes:\n      - '*.myruby'\n",
+        )
+        .unwrap();
+        let merged = merge_configs(default, Some(user));
+        let langs = merged.languages.unwrap();
+        let ruby = langs.get("ruby").unwrap();
+        let includes = ruby.includes.as_ref().unwrap();
+        // Default ruby includes preserved
+        assert!(includes.iter().any(|i| i == "*.rb"), "default *.rb missing");
+        // User include appended
+        assert!(includes.iter().any(|i| i == "*.myruby"), "user *.myruby missing");
     }
 }

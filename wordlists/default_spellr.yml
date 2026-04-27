@@ -1,0 +1,111 @@
+---
+word_minimum_length: 3
+key_heuristic_weight: 5
+key_minimum_length: 6
+
+excludes: # this list is parsed with the .gitignore format
+  - .git/
+  - .spellr_wordlists/
+  - wordlists/
+  - .DS_Store
+  - Gemfile.lock
+  - .rspec_status
+  - '*.png'
+  - '*.jpg'
+  - '*.jpeg'
+  - '*.gif'
+  - '*.ico'
+  - .gitkeep
+  - .keep
+  - '*.svg'
+  - '*.eot'
+  - '*.ttf'
+  - '*.woff'
+  - '*.woff2'
+  - '*.zip'
+  - '*.pdf'
+  - '*.xlsx'
+  - '*.gz'
+
+languages:
+  english:
+    locale: US # options US, CA, AU, GBs (GB with -ise endings), GBz (GB with -ize endings)
+  spellr:
+    addable: false
+  ruby:
+    includes: # Filtered using gitignore format
+      - '*.rb'
+      - '*.rake'
+      - '*.gemspec'
+      - '*.erb'
+      - '*.haml'
+      - '*.jbuilder'
+      - '*.builder'
+      - Gemfile
+      - Rakefile
+      - config.ru
+      - Capfile
+      - .simplecov
+    hashbangs:
+      - ruby
+  rust:
+    includes:
+      - '*.rs'
+      - Cargo.lock
+      - target/
+  html:
+    includes:
+      - '*.html'
+      - '*.hml'
+      - '*.jsx'
+      - '*.tsx'
+      - '*.js'
+      - '*.ts'
+      - '*.jsx.snap'
+      - '*.tsx.snap'
+      - '*.coffee'
+      - '*.haml'
+      - '*.erb'
+      - '*.rb'
+      - '*.builder'
+      - '*.css'
+      - '*.scss'
+      - '*.sass'
+      - '*.less'
+  javascript:
+    includes:
+      - '*.html'
+      - '*.hml'
+      - '*.jsx'
+      - '*.tsx'
+      - '*.js'
+      - '*.ts'
+      - '*.jsx.snap'
+      - '*.tsx.snap'
+      - '*.coffee'
+      - '*.haml'
+      - '*.erb'
+      - '*.json'
+  shell:
+    includes:
+      - '*.sh'
+      - Dockerfile
+    hashbangs:
+      - bash
+      - sh
+  dockerfile:
+    includes:
+      - Dockerfile
+  css:
+    includes:
+      - '*.css'
+      - '*.sass'
+      - '*.scss'
+      - '*.less'
+  xml:
+    includes:
+      - '*.xml'
+      - '*.html'
+      - '*.haml'
+      - '*.hml'
+      - '*.svg'
