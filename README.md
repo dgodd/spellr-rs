@@ -65,7 +65,7 @@ spellr --no-parallel                  # disable parallel file processing
 In interactive mode you are shown each unrecognised word, its location, and a set of suggestions:
 
 ```
-src/main.rs:12:4 recieve
+src/main.rs:12:4 receive
 Did you mean: [1] receive, [2] relieve
 [a]dd, [r]eplace, [s]kip, [h]elp, [^C] to exit:
 ```
