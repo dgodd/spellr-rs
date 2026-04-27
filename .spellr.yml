@@ -2,8 +2,12 @@
 excludes:
   - wordlists/*
   - target/*
+  - Cargo.lock
 languages:
   lorem:
     includes:
       - src/*
       - .spellr.yml
+  rust:
+    includes:
+      - '*'
