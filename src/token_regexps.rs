@@ -13,18 +13,18 @@ use regex::Regex;
 
 // [Word], [Word]Word, [Word]'s, [Wordn't]
 const TITLE_CASE_PAT: &str =
-    r"[[:upper:]][[:lower:]]+(?:[\u{2018}\u{2019}'][[:lower:]]+(?<![\u{2018}\u{2019}']s))*";
+    r"\p{Lu}\p{Ll}+(?:[\u{2018}\u{2019}']\p{Ll}+(?<![\u{2018}\u{2019}']s))*";
 
 // [WORD], [WORD]Word, [WORDN'T], [WORD]'S, [WORD]'s, [WORD]s
 const UPPER_CASE_PAT: &str =
-    r"[[:upper:]]+(?:[\u{2018}\u{2019}'][[:upper:]]+(?<![\u{2018}\u{2019}'][Ss]))*(?:(?![[:lower:]])|(?=s(?![[:lower:]])))";
+    r"\p{Lu}+(?:[\u{2018}\u{2019}']\p{Lu}+(?<![\u{2018}\u{2019}'][Ss]))*(?:(?!\p{Ll})|(?=s(?!\p{Ll})))";
 
 // [word], [word]'s, [wordn't]
 const LOWER_CASE_PAT: &str =
-    r"[[:lower:]]+(?:[\u{2018}\u{2019}'][[:lower:]]+(?<![\u{2018}\u{2019}']s))*";
+    r"\p{Ll}+(?:[\u{2018}\u{2019}']\p{Ll}+(?<![\u{2018}\u{2019}']s))*";
 
-// Characters in [:alpha:] that are neither [:lower:] nor [:upper:] (e.g. Arabic, Devanagari)
-const OTHER_CASE_PAT: &str = r"(?:[[:alpha:]](?<![[:lower:][:upper:]]))+";
+// Characters in \p{L} that are neither \p{Ll} nor \p{Lu} (e.g. Arabic, Devanagari)
+const OTHER_CASE_PAT: &str = r"(?:\p{L}(?<![\p{Ll}\p{Lu}]))+";
 
 /// Recognises a single word-token in title, upper, lower, or other case.
 /// Requires fancy-regex because of the variable-length look-behinds.
@@ -41,8 +41,8 @@ pub static TERM_RE: Lazy<FancyRegex> = Lazy::new(|| {
 
 // ── Non-word skip patterns ────────────────────────────────────────────────────
 
-// Anything that is NOT alpha, /, %, #, 0-9, or backslash
-const NOT_EVEN_NON_WORDS_PAT: &str = r"[^[:alpha:]/%#0-9\\]+";
+// Anything that is NOT a Unicode letter, /, %, #, 0-9, or backslash
+const NOT_EVEN_NON_WORDS_PAT: &str = r"[^\p{L}/%#0-9\\]+";
 
 // ANSI/terminal colour escapes: \e[31m or \033[1;32m
 const SHELL_COLOR_ESCAPE_PAT: &str = r"\\(?:e|0?33)\[\d+(?:;\d+)*m";
@@ -145,7 +145,7 @@ pub static SKIPS_RE: Lazy<FancyRegex> = Lazy::new(|| {
 const LEFTOVER_NON_WORD_BITS_PAT: &str = r"[/%#\\]|\d+";
 
 // Repeated single letters like "xxxxxxxx" - backreference requires fancy-regex
-const REPEATED_SINGLE_LETTERS_PAT: &str = r"(?:([[:alpha:]])\1+)(?![[:alpha:]])";
+const REPEATED_SINGLE_LETTERS_PAT: &str = r"(?:(\p{L})\1+)(?!\p{L})";
 
 // Sequential alphabet runs: a, ab, abc, ... abcdefghijklmnopqrstuvwxyz (lowercase only).
 // Full expansion of the Ruby /a(?:b(?:c...yz?)?...)?(?![[:alpha:]])/i pattern.
@@ -154,7 +154,7 @@ const REPEATED_SINGLE_LETTERS_PAT: &str = r"(?:([[:alpha:]])\1+)(?![[:alpha:]])"
 // Structure: 23 optional nested groups (b..x), then (?:yz?) as the innermost, giving
 // exactly 24 (?:  groups + 1 (?!  group = 25 opens, matched by 25 closes.
 const SEQUENTIAL_LETTERS_PAT: &str =
-    "a(?:b(?:c(?:d(?:e(?:f(?:g(?:h(?:i(?:j(?:k(?:l(?:m(?:n(?:o(?:p(?:q(?:r(?:s(?:t(?:u(?:v(?:w(?:x(?:yz?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?(?![[:alpha:]])";
+    r"a(?:b(?:c(?:d(?:e(?:f(?:g(?:h(?:i(?:j(?:k(?:l(?:m(?:n(?:o(?:p(?:q(?:r(?:s(?:t(?:u(?:v(?:w(?:x(?:yz?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?)?(?!\p{L})";
 
 /// Skip pattern applied after the key-heuristic pass.
 /// Requires fancy-regex for the backreference in REPEATED_SINGLE_LETTERS
