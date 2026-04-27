@@ -30,7 +30,7 @@ const OTHER_CASE_PAT: &str = r"(?:\p{L}(?<![\p{Ll}\p{Lu}]))+";
 /// Requires fancy-regex because of the variable-length look-behinds.
 pub static TERM_RE: Lazy<FancyRegex> = Lazy::new(|| {
     let pat = format!(
-        "(?:{title}|{upper}|{lower}|{other})",
+        "^(?:{title}|{upper}|{lower}|{other})",
         title = TITLE_CASE_PAT,
         upper = UPPER_CASE_PAT,
         lower = LOWER_CASE_PAT,
@@ -127,7 +127,7 @@ fn key_patterns_pat() -> String {
 /// Requires fancy-regex because HEX_PAT and KEY_DATA_URL_PAT contain look-aheads.
 pub static SKIPS_RE: Lazy<FancyRegex> = Lazy::new(|| {
     let pat = format!(
-        "(?:{non_word}|{shell}|{backslash}|{url_enc}|{hex}|{url}|{key})",
+        "^(?:{non_word}|{shell}|{backslash}|{url_enc}|{hex}|{url}|{key})",
         non_word  = NOT_EVEN_NON_WORDS_PAT,
         shell     = SHELL_COLOR_ESCAPE_PAT,
         backslash = BACKSLASH_ESCAPE_PAT,
@@ -161,7 +161,7 @@ const SEQUENTIAL_LETTERS_PAT: &str =
 /// and the look-ahead in SEQUENTIAL_LETTERS.
 pub static AFTER_KEY_SKIPS_RE: Lazy<FancyRegex> = Lazy::new(|| {
     let pat = format!(
-        "(?:{leftover}|{repeated}|{sequential})",
+        "^(?:{leftover}|{repeated}|{sequential})",
         leftover   = LEFTOVER_NON_WORD_BITS_PAT,
         repeated   = REPEATED_SINGLE_LETTERS_PAT,
         sequential = SEQUENTIAL_LETTERS_PAT,
@@ -188,7 +188,7 @@ fn three_chunk_pat() -> String {
 /// Requires fancy-regex because of the look-ahead.
 pub static POSSIBLE_KEY_RE: Lazy<FancyRegex> = Lazy::new(|| {
     let pat = format!(
-        r"{chunk}[A-Za-z0-9+/\-_]*=*(?![[:alnum:]])",
+        r"^{chunk}[A-Za-z0-9+/\-_]*=*(?![[:alnum:]])",
         chunk = three_chunk_pat(),
     );
     FancyRegex::new(&pat).expect("POSSIBLE_KEY_RE pattern is invalid")

@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::token::normalize_str;
 
@@ -18,6 +19,8 @@ pub struct Wordlist {
     cache: HashMap<String, bool>,
     /// Optional embedded wordlist content baked in at compile time.
     embedded: Option<&'static str>,
+    /// Globally-cached `Arc<HashSet>` for fast O(1) bulk membership checks.
+    static_set: Option<Arc<HashSet<String>>>,
 }
 
 impl Wordlist {
@@ -31,6 +34,7 @@ impl Wordlist {
             words: None,
             cache: HashMap::new(),
             embedded: None,
+            static_set: None,
         }
     }
 
@@ -43,6 +47,29 @@ impl Wordlist {
             words: None,
             cache: HashMap::new(),
             embedded: Some(embedded),
+            static_set: None,
+        }
+    }
+
+    /// Create a `Wordlist` backed by an embedded string **and** a pre-built
+    /// globally-cached `Arc<HashSet<String>>`.
+    ///
+    /// `as_arc_hashset` will return the cached `Arc` directly (no allocation)
+    /// when no on-disk override file exists, making per-file word-set
+    /// construction essentially free for the common case.
+    pub fn with_static_set(
+        path: PathBuf,
+        name: String,
+        embedded: &'static str,
+        static_set: Arc<HashSet<String>>,
+    ) -> Self {
+        Self {
+            path,
+            name,
+            words: None,
+            cache: HashMap::new(),
+            embedded: Some(embedded),
+            static_set: Some(static_set),
         }
     }
 
@@ -81,7 +108,31 @@ impl Wordlist {
     /// Return `true` if embedded content is present **or** the backing file
     /// exists on disk.
     pub fn exists(&self) -> bool {
-        self.embedded.is_some() || self.path.exists()
+        self.embedded.is_some() || self.static_set.is_some() || self.path.exists()
+    }
+
+    /// Return a cheaply-cloned `Arc` to this wordlist's word set.
+    ///
+    /// * If the wordlist has a globally-cached set **and** no on-disk override
+    ///   file exists, the shared `Arc` is returned directly (zero allocation).
+    /// * If a disk file also exists, the cached set is cloned and the disk
+    ///   words are merged in before wrapping in a new `Arc`.
+    /// * Otherwise the words are loaded normally and wrapped in a fresh `Arc`.
+    pub fn as_arc_hashset(&mut self) -> Arc<HashSet<String>> {
+        if let Some(ref set) = self.static_set {
+            if !self.path.exists() {
+                // Pure embedded, no disk override — hand out the global copy.
+                return Arc::clone(set);
+            }
+            // Disk override exists: merge embedded set with on-disk words.
+            let mut merged: HashSet<String> = (**set).clone();
+            for w in Self::read_words_from_disk(&self.path) {
+                merged.insert(w);
+            }
+            return Arc::new(merged);
+        }
+        // Pure disk-backed wordlist.
+        Arc::new(self.load_words().iter().cloned().collect())
     }
 
     /// Return a slice of all words (loading from disk on first call).

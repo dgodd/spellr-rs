@@ -88,7 +88,7 @@ fn check_file_parallel(
 
     let mut skip_all: HashSet<String> = HashSet::new();
     let mut needs_reload = true;
-    let mut word_sets: Vec<HashSet<String>> = Vec::new();
+    let mut word_sets: Vec<Arc<HashSet<String>>> = Vec::new();
 
     loop {
         if needs_reload {
@@ -159,7 +159,7 @@ fn check_file(
 
     let mut skip_all: HashSet<String> = HashSet::new();
     let mut needs_reload = true;
-    let mut word_sets: Vec<HashSet<String>> = Vec::new();
+    let mut word_sets: Vec<Arc<HashSet<String>>> = Vec::new();
 
     loop {
         if needs_reload {
@@ -213,7 +213,7 @@ fn check_file(
 fn collect_tokens(
     path: &Path,
     config: &Config,
-    word_sets: &[HashSet<String>],
+    word_sets: &[Arc<HashSet<String>>],
 ) -> Vec<Token> {
     let tokenizer = Tokenizer::new(path.to_path_buf(), config.clone());
     let mut tokens: Vec<Token> = Vec::new();
@@ -225,17 +225,17 @@ fn collect_tokens(
     tokens
 }
 
-/// Load wordlists for `path` and flatten them into `HashSet<String>` for
-/// O(1) membership testing.
+/// Load wordlists for `path` and return them as `Arc<HashSet<String>>` for
+/// O(1) membership testing with minimal allocation for embedded wordlists.
 fn build_word_sets(
     languages: &[Language],
     path: &Path,
     first_line: Option<&str>,
-) -> Vec<HashSet<String>> {
+) -> Vec<Arc<HashSet<String>>> {
     let mut wordlists = wordlists_for_file(languages, path, first_line);
     wordlists
         .iter_mut()
-        .map(|w| w.words().iter().cloned().collect::<HashSet<String>>())
+        .map(|w| w.as_arc_hashset())
         .collect()
 }
 
