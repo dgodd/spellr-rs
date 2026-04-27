@@ -1,0 +1,9 @@
+---
+excludes:
+  - wordlists/*
+  - target/*
+languages:
+  lorem:
+    includes:
+      - src/*
+      - .spellr.yml
