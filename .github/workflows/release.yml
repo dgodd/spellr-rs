@@ -22,9 +22,6 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset_name: spellr-linux-x86_64
-          - os: macos-13
-            target: x86_64-apple-darwin
-            asset_name: spellr-macos-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
             asset_name: spellr-macos-aarch64
@@ -33,7 +30,7 @@ jobs:
             asset_name: spellr-windows-x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,7 +38,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Cache Cargo registry and build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
