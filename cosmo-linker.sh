@@ -21,6 +21,13 @@ set -euo pipefail
 COSMO="${COSMO:-$HOME/cosmocc}"
 ARCH="${ARCH:-x86_64}"
 
+DRIVER="$COSMO/bin/$ARCH-unknown-cosmo-cc"
+if [ ! -x "$DRIVER" ]; then
+    echo "cosmo-linker: fatal: cosmocc driver not found at $DRIVER" >&2
+    echo "cosmo-linker: set the COSMO environment variable to your cosmocc directory" >&2
+    exit 1
+fi
+
 declare -a args
 args=()
 
@@ -46,13 +53,17 @@ for o in "$@"; do
 done
 
 # Explicitly append cosmopolitan.a so epoll_*, waitid, and all other C library
-# symbols are available.  We search for the file rather than hard-coding the
-# path so this works across different cosmocc layout versions.
-COSMO_A=$(find "$COSMO" -name "cosmopolitan.a" -path "*${ARCH}*" 2>/dev/null | head -1)
+# symbols are available.  The find is kept separate from set -e so a missing
+# directory doesn't silently kill the script.
+COSMO_A=""
+if [ -d "$COSMO" ]; then
+    COSMO_A=$(find "$COSMO" -name "cosmopolitan.a" -path "*${ARCH}*" 2>/dev/null | head -1) || true
+fi
+
 if [ -n "$COSMO_A" ]; then
     args+=("$COSMO_A")
 else
     echo "cosmo-linker: warning: could not locate cosmopolitan.a under $COSMO" >&2
 fi
 
-exec "$COSMO/bin/$ARCH-unknown-cosmo-cc" "${args[@]}"
+exec "$DRIVER" "${args[@]}"
