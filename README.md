@@ -170,3 +170,8 @@ To cut a release, just push a version tag:
 git tag v0.12.3
 git push origin v0.12.3
 ```
+
+Possibly needing
+```
+rustup component add rust-src --toolchain nightly-aarch64-apple-darwin
+```
