@@ -22,8 +22,11 @@ jobs:
     - name: Build
       run: cargo build --verbose
 
+    - name: find spellr
+      run: find . -name spellr
+
     - name: Run Spell Check
-      run: cargo run
+      run: ./spellr
 
     - name: Run tests
       run: cargo test --verbose
