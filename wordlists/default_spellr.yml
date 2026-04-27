@@ -6,7 +6,6 @@ key_minimum_length: 6
 excludes: # this list is parsed with the .gitignore format
   - .git/
   - .spellr_wordlists/
-  - /wordlists/
   - .DS_Store
   - Gemfile.lock
   - .rspec_status
