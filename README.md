@@ -161,3 +161,12 @@ This implementation targets behavioural compatibility with the Ruby [spellr gem]
 MIT — same as the original spellr gem.
 
 Bundled wordlists are derived from [SCOWL](http://wordlist.aspell.net/) and [MDN](https://developer.mozilla.org/); see the `wordlists/` directory for their individual licences.
+
+## To Create a release
+
+To cut a release, just push a version tag:
+
+```sh
+git tag v0.12.1
+git push origin v0.12.1
+```
