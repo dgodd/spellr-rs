@@ -26,7 +26,7 @@ jobs:
       run: find . -name spellr
 
     - name: Run Spell Check
-      run: ./spellr
+      run: ./target/debug/spellr
 
     - name: Run tests
       run: cargo test --verbose
