@@ -27,7 +27,7 @@
 	"frame-pointer": "always",
 	"requires-lto": false,
 	"eh-frame-header": false,
-	"no-default-libraries": true,
+	"no-default-libraries": false,
 	"max-atomic-width": 64,
 	"linker-flavor": "gcc",
 	"linker": "cosmo-linker",
