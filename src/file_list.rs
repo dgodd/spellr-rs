@@ -2,7 +2,6 @@
 
 use crate::config::Config;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use ignore::overrides::OverrideBuilder;
 use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
@@ -28,77 +27,53 @@ impl FileList {
     /// patterns are given the current working directory is walked.
     pub fn iter(&self) -> impl Iterator<Item = PathBuf> {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-
         let (walk_roots, glob_filter) = self.build_roots_and_filter(&cwd);
 
-        // ----------------------------------------------------------------
-        // Build the walker
-        // ----------------------------------------------------------------
         let mut builder = WalkBuilder::new(&walk_roots[0]);
         for extra in walk_roots.iter().skip(1) {
             builder.add(extra);
         }
 
         if self.suppress_file_rules {
-            // Ignore all VCS / gitignore rules so every file is visible.
             builder.git_ignore(false);
             builder.git_global(false);
             builder.git_exclude(false);
             builder.ignore(false);
-        } else {
-            // Add config excludes as negated override patterns.
-            //
-            // In the `ignore` crate's OverrideBuilder a negated pattern
-            // (prefixed with `!`) means "exclude this path".  Paths that
-            // don't match any negated-only override set proceed through the
-            // normal gitignore rules.
-            if !self.config.excludes.is_empty() {
-                let mut ob = OverrideBuilder::new(&cwd);
-                for exclude in &self.config.excludes {
-                    // Strip a trailing `/` – the override builder pattern
-                    // language uses `*/` or `**/` conventions; bare trailing
-                    // slashes can confuse pattern parsing.
-                    let pat = exclude.trim_end_matches('/');
-                    if pat.is_empty() {
-                        continue;
-                    }
-                    // If the original pattern had a trailing `/`, match the
-                    // directory and everything beneath it.
-                    let glob = if exclude.ends_with('/') {
-                        format!("!{pat}/**")
-                    } else {
-                        format!("!{pat}")
-                    };
-                    let _ = ob.add(&glob);
-
-                    // Also exclude the directory entry itself when there was
-                    // a trailing slash.
-                    if exclude.ends_with('/') {
-                        let _ = ob.add(&format!("!{pat}"));
+        } else if !self.config.excludes.is_empty() {
+            // Build a GlobSet from the exclude patterns and use filter_entry so
+            // the walker never recurses into excluded directories.
+            let mut gs_builder = GlobSetBuilder::new();
+            for exclude in &self.config.excludes {
+                let pat = exclude.trim_end_matches('/');
+                if pat.is_empty() {
+                    continue;
+                }
+                if let Ok(g) = Glob::new(pat) {
+                    gs_builder.add(g);
+                }
+                if exclude.ends_with('/') {
+                    if let Ok(g) = Glob::new(&format!("{pat}/**")) {
+                        gs_builder.add(g);
                     }
                 }
-                if let Ok(overrides) = ob.build() {
-                    builder.overrides(overrides);
-                }
+            }
+            if let Ok(exclude_set) = gs_builder.build() {
+                builder.filter_entry(move |entry| {
+                    let rel = entry.path().strip_prefix(&cwd).unwrap_or(entry.path());
+                    !exclude_set.is_match(rel)
+                });
             }
         }
 
-        // ----------------------------------------------------------------
-        // Collect matching files
-        // ----------------------------------------------------------------
-        let results: Vec<PathBuf> = builder
+        builder
             .build()
             .filter_map(|entry| entry.ok())
-            // Only yield regular files, not directories or symlinks.
             .filter(|entry| entry.file_type().map(|ft| ft.is_file()).unwrap_or(false))
             .map(|entry| entry.into_path())
             .filter(move |path| match &glob_filter {
                 Some(gs) => gs.is_match(path),
                 None => true,
             })
-            .collect();
-
-        results.into_iter()
     }
 
     // ----------------------------------------------------------------
